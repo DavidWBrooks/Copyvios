@@ -154,8 +154,9 @@ namespace Copyvios
                 }
             }
 
+            // Now-empty bulleted lists are fairly common
             wptext = Regex.Replace(wpsb.ToString(), @"^\s*\*\s*$", "", RegexOptions.Multiline);
-            wptext = Regex.Replace(wptext, @"&#\d+;", (d) => WebUtility.HtmlDecode(d.Value));
+            wptext = WebUtility.HtmlDecode(wptext);
 
             // Finally do the trim thing
             while (true) {
@@ -198,7 +199,7 @@ namespace Copyvios
                 if (result.Length == len) break;
             }
 
-            return Regex.Replace(result, @"&#\d+;", (d) => WebUtility.HtmlDecode(d.Value));
+            return WebUtility.HtmlDecode(result);
         }
 
         private void Status(string message)

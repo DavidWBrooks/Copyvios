@@ -112,10 +112,10 @@ namespace Copyvios
         // Produce a list of words as hashes
         static Word[] WordReduce(string text)
         {
-            MatchCollection matches = Regex.Matches(text.ToLower(), @"[-\w]+");
+            MatchCollection matches = Regex.Matches(text.ToLower(), @"\w+");
             List<Word> result = new List<Word>(matches.Count);
             foreach (Match m in matches) {
-                result.Add(new Word(m.Index, m.Length, m.Value.Replace("-", "")));
+                result.Add(new Word(m.Index, m.Length, m.Value));
             }
 
             // Some guards that should work with the above logic
