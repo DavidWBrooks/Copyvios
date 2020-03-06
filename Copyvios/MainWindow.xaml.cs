@@ -155,6 +155,7 @@ namespace Copyvios
             }
 
             wptext = Regex.Replace(wpsb.ToString(), @"^\s*\*\s*$", "", RegexOptions.Multiline);
+            wptext = Regex.Replace(wptext, @"&#\d+;", (d) => WebUtility.HtmlDecode(d.Value));
 
             // Finally do the trim thing
             while (true) {
@@ -197,7 +198,7 @@ namespace Copyvios
                 if (result.Length == len) break;
             }
 
-            return result;
+            return Regex.Replace(result, @"&#\d+;", (d) => WebUtility.HtmlDecode(d.Value));
         }
 
         private void Status(string message)
