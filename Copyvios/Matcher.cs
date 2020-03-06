@@ -21,15 +21,18 @@ namespace Copyvios
         }
     }
 
-    // a single nGram
+    // A single nGram
+    // Properly, this should be more opaque, and support IEquatable<T> and an accumulate method,
+    // but that would take up valuable coding time.
+    // So did typing the above text.
     public class Chunk
     {
         public int startpos;   // Position in the original text
         public int len;        // Length in the original text
-        public Int64 hash;
+        public UInt64 hash;
         public bool isMatch;
 
-        public Chunk(int s, int l, Int64 h)
+        public Chunk(int s, int l, UInt64 h)
         {
             startpos = s;
             len = l;
@@ -84,16 +87,19 @@ namespace Copyvios
             for (int i = 0; i <= (wordlist.Length - maxGram); i++) {
                 if (smallhashes.Contains(wordlist[i].hash)) continue;   // Dom't start on a common word
                 int start = wordlist[i].startpos;
-                Int64 newgram = 0;
+                UInt64 newgram = 0;
                 int gramlength = 0;
                 int wordsingram = 0;
                 for (int j = 0; j < maxGram; j++) {
                     Word thisword = wordlist[i + j];
                     int h = thisword.hash;
                     if (!smallhashes.Contains(h)) {
-                        // If you don't shift-left, the words can be in any order. This is why I'm using Int64.
+                        // If you don't shift-left, the words can be in any order. This is why I'm using 64-bit.
                         // But forget the shift if you actually want the "unordered" logic.
-                        newgram = (newgram << 8) ^ h;
+                        // Also, if maxGram >5, this could lose data (either shift fewer bits, or rotate).
+                        // Also, rant. Why does the .net framework insist on using signed int for cardinal numbers like
+                        // length/count and bitfields like hashcodes? I blame K&R. It all goes back to strlen.
+                        newgram = (newgram << 8) ^ (((UInt64)h) & 0xFFFFFFFFUL);
                         gramlength = thisword.startpos - start + thisword.len;
                         if (++wordsingram == minGram)
                             break;
