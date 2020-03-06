@@ -1,7 +1,7 @@
 # Copyvios
 Client-side replacement for Wikipedia's Copyvio detector for URLs
 
-Usage: The executable runs on Windows, and needs Framework 4.7.2 or better. Start it and enter (a) a Wikipedia article name and (b) another URL. You can put the two parameters on the command line for easier scripting.
+Build with Visual Studio 2017 or greater. The executable runs on Windows, and needs Framework 4.5 or better. Start it and enter (a) a Wikipedia article name and (b) another URL. You can put the two parameters on the command line for easier scripting.
 
 This is a clean-room implementation without reference to any advanced language analysis or efficient text-matching logic (i.e. no Myers algorithm) but seems pretty close to what the wmflabs tool does, in this limited scenario. It only takes a second or two; most of the time is spent downloading the two documents.I did this for myself, and the language processing for the URL is designed only for a certain class of Wikisource articles. Other types of document will be ugly. That's probably the area most in need of improvement.
 
