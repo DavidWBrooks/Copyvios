@@ -149,16 +149,21 @@ namespace Copyvios
                 if (c1 == '{' && c2 == '{') templateDepth++;
                 if (templateDepth == 0) wpsb.Append(c1);
                 if (c1 == '}' && c2 == '}' && templateDepth > 0) {
-                    templateDepth--;
+                    if (--templateDepth == 0) {
+                        wpsb.Append(" ");   // Treat that template as a word-breaker in case it's embedded (think {{mdash}}, {{snd}})
+                    }
                     i++;
                 }
             }
 
+            // Because I may just have inserted multiple spaces:
+            wptext = Regex.Replace(wpsb.ToString(), " {2,}", " ");
+
             // Now-empty bulleted lists are fairly common
-            wptext = Regex.Replace(wpsb.ToString(), @"^\s*\*\s*$", "", RegexOptions.Multiline);
+            wptext = Regex.Replace(wptext.ToString(), @"^\s*\*\s*$", "", RegexOptions.Multiline);
             wptext = WebUtility.HtmlDecode(wptext);
 
-            // Finally do the trim thing
+            // Finally trim runs of newline
             while (true) {
                 int len = wptext.Length;
                 wptext = wptext.Replace("\n\n\n", "\n\n");
