@@ -14,3 +14,5 @@ Theory of operation (along with a few practical tweaks):
 *Combine word hashes, between 3 and 5 at a time, into grams
 *Look for matching grams between the sources
 *Use the extents of the matches to color the plain text.
+
+The purpose of the varying size nGrams is: 3 consecutive significant words constitute a match, but we should lengthen the match if one or more words are from a list of common short words. A maximum of five feels right. The hashing algorithm easily accommodates 3 significant words. The short words are (currently) not included in the hash.

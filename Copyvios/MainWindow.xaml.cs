@@ -76,6 +76,7 @@ namespace Copyvios
                 return;
             }
 
+            WPHeading.Content = article;
             Reload(wpcontent, ebcontent);
 
             if (wpcontent.Length == 0 || ebcontent.Length == 0) {   // Weird, right?
@@ -112,10 +113,7 @@ namespace Copyvios
 
             string[] args = Environment.GetCommandLineArgs();
             if (args.Length > 1) articleTitle.Text = args[1];
-            if (args.Length > 2) {
-                URL.Text = args[2];
-                DoComparison();// WithCancel();
-            }
+            if (args.Length > 2) URL.Text = args[2];
         }
 
         private string StripWP(string wphttp)
@@ -230,6 +228,13 @@ namespace Copyvios
             double newHeight = this.ActualHeight - CruftHeight;
             WPViewer.Height = newHeight;
             EBViewer.Height = newHeight;
+        }
+
+        private void Rendered(object sender, EventArgs e)
+        {
+            if (articleTitle.Text.Length > 0 && URL.Text.Length > 0) {
+                DoComparison();
+            }
         }
     }
 }
