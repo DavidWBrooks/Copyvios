@@ -22,6 +22,7 @@ namespace Copyvios
         public MainWindow()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            Regex.CacheSize = 20;
             InitializeComponent();
         }
 
@@ -129,7 +130,7 @@ namespace Copyvios
             wptext = Regex.Replace(wptext, "<!--.*?-->", "");
             wptext = Regex.Replace(wptext, "<gallery.*?</gallery>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             wptext = Regex.Replace(wptext, "\\[\\[Category.*?]]\n?", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            wptext = Regex.Replace(wptext, @"\[\[[^]]+\|(.+?)]]", (m)=> { return m.Groups[1].Value; }, RegexOptions.Singleline);
+            wptext = Regex.Replace(wptext, @"\[\[[^]]+\|(.+?)]]", (m) => { return m.Groups[1].Value; }, RegexOptions.Singleline);
             wptext = wptext.Replace("[", "").Replace("]", "");
             wptext = Regex.Replace(wptext, @"<ref[^>]*/>", "", RegexOptions.IgnoreCase);
             wptext = Regex.Replace(wptext, "<ref.+?</ref>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);

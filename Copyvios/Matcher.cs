@@ -22,9 +22,6 @@ namespace Copyvios
     }
 
     // A single nGram
-    // Properly, this should be more opaque, and support IEquatable<T> and an accumulate method,
-    // but that would take up valuable coding time.
-    // So did typing the above text.
     public class Chunk
     {
         public int startpos;   // Position in the original text
@@ -46,76 +43,16 @@ namespace Copyvios
         const int minGram = 3;
         const int maxGram = 5;
 
-        static readonly string[] smallwords = new[] { "a", "an", "the", "in", "it", "at", "to", "he", "she", "as", "is", "of" };
+        static readonly string[] smallwords = new[] {
+            "a", "an", "the", "in", "on",
+            "it", "at", "to", "he", "she",
+            "as", "is", "was", "are", "of",
+            "by", "for", "or", "and", "s" };    // s seems to be a word if preceded by apostrophe
         static readonly int[] smallhashes = smallwords.Select(w => w.GetHashCode()).ToArray();
         const Int64 guardhash = 0;
         static readonly Brush highlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0xAA));
 
-        // Do a quadratic match (it's OK, I'll wait) on the chunks
-        public static void Marker(List<Chunk> wpchunks, List<Chunk> ebchunks)
-        {
-            foreach (Chunk wpchunk in wpchunks) {
-                foreach (Chunk ebchunk in ebchunks) {
-                    if (wpchunk.hash == ebchunk.hash) {
-                        wpchunk.isMatch = ebchunk.isMatch = true;
-                    }
-                }
-            }
-        }
-
-        // Consolidate chunks into an array of on/off settings
-        public static void Mapper(List<Chunk> chunks, bool[] bitmap)
-        {
-            foreach(Chunk chunk in chunks.Where(c => c.isMatch)) {
-                int ind = chunk.startpos;
-                int length = chunk.len;
-                while (length-- > 0) {
-                    bitmap[ind++] = true;
-                }
-            }
-        }
-
-        // Produce a list of nGrams
-        public static List<Chunk> Reducer(string text)
-        {
-            Word[] wordlist = WordReduce(text);
-            List<Chunk> result = new List<Chunk>(wordlist.Length + 1);
-
-            // Work through word sequences, ending 3 away from the end of the list
-            // Yes, adjacent grams will have overlapping words.
-
-            for (int i = 0; i <= (wordlist.Length - maxGram); i++) {
-                if (smallhashes.Contains(wordlist[i].hash)) continue;   // Dom't start on a common word
-                int start = wordlist[i].startpos;
-                UInt64 newgram = 0;
-                int gramlength = 0;
-                int wordsingram = 0;
-                for (int j = 0; j < maxGram; j++) {
-                    Word thisword = wordlist[i + j];
-                    int h = thisword.hash;
-                    if (!smallhashes.Contains(h)) {
-                        // If you don't shift-left, the words can be in any order. This is why I'm using 64-bit.
-                        // But forget the shift if you actually want the "unordered" logic.
-                        // Also, if maxGram >5, this could lose data (either shift fewer bits, or rotate).
-                        // Also, rant. Why does the .net framework insist on using signed int for cardinal numbers like
-                        // length/count and bitfields like hashcodes? I blame K&R. It all goes back to strlen.
-                        newgram = (newgram << 8) ^ (((UInt64)h) & 0xFFFFFFFFUL);
-                        gramlength = thisword.startpos - start + thisword.len;
-                        if (++wordsingram == minGram)
-                            break;
-                    }
-                }
-
-                if (newgram != 0) {
-                    result.Add(new Chunk(start, gramlength, newgram));
-                }
-            }
-
-            result.Add(new Chunk(text.Length, 0, guardhash));   // Guard
-            return result;
-        }
-
-        // Produce a list of words as hashes
+        // Produce a list of words as their hashes
         static Word[] WordReduce(string text)
         {
             MatchCollection matches = Regex.Matches(text.ToLower(), @"\w+");
@@ -131,32 +68,117 @@ namespace Copyvios
             return result.ToArray();
         }
 
+        // Produce a list of nGrams
+        public static List<Chunk> Reducer(string text)
+        {
+            Word[] wordlist = WordReduce(text);
+            List<Chunk> result = new List<Chunk>(wordlist.Length + 1);
+
+            // Work through word sequences, ending 5 away from the end of the list
+            // Yes, adjacent grams will have overlapping words.
+            // When accumulating, if you don't shift-left, the words can be in any order.
+            // But forget the shift if you actually want the "unordered" logic (in which case the hash can be 32-bit).
+            // If minGram >5, an 8-bit shift could lose data (in which case either shift fewer bits, or rotate).
+            for (int i = 0; i <= (wordlist.Length - maxGram); i++) {
+                Word thisword = wordlist[i];
+                int start = thisword.startpos;
+                UInt64 newgram = 0;
+
+                // After some experimentation with several different algorithms, we seem to get the best results
+                // by combining two approaches, which also have few false positives:
+                // Combine 4 consecutive words, if at least one is significant
+                // Combine 3 significant words, skipping as many common words as necessary
+                bool sig = false;
+                for (int j = 0; j < 4; j++) {
+                    thisword = wordlist[i + j];
+                    int h = thisword.hash;
+                    newgram = (newgram << 8) ^ (UInt32)h;
+                    if (!smallhashes.Contains(h)) sig = true;
+                }
+                if (sig && newgram != 0) {
+                    result.Add(new Chunk(start, thisword.startpos - start + thisword.len, newgram));
+                }
+
+                newgram = 0;
+                int wordsingram = 0;
+                for (int j = i; j < wordlist.Length; j++) {
+                    thisword = wordlist[j];
+                    int h = thisword.hash;
+                    if (!smallhashes.Contains(h)) {
+                        newgram = (newgram << 8) ^ (UInt32)h;
+                        if (++wordsingram == minGram)
+                            break;
+                    }
+                }
+                if (newgram != 0) {
+                    result.Add(new Chunk(start, thisword.startpos - start + thisword.len, newgram));
+                }
+            }
+
+            result.Add(new Chunk(text.Length, 0, guardhash));   // Guard a possible edge case
+            return result;
+        }
+
+
+        // Match and mark both sides. Using a more efficient lookup with a dictionary of lists would make this
+        // O(n) instead of O(n^2), but this simpler search is rarely expensive compared with web access.
+        public static void Marker(List<Chunk> wpchunks, List<Chunk> ebchunks)
+        {
+            foreach (Chunk wpchunk in wpchunks) {
+                foreach (Chunk ebchunk in ebchunks) {
+                    if (wpchunk.hash == ebchunk.hash) {
+                        wpchunk.isMatch = ebchunk.isMatch = true;
+                    }
+                }
+            }
+        }
+
+        // Consolidate chunks into an array of on/off settings
+        public static void Mapper(List<Chunk> chunks, bool[] bitmap)
+        {
+            foreach (Chunk chunk in chunks.Where(c => c.isMatch)) {
+                int ind = chunk.startpos;
+                int length = chunk.len;
+                while (length-- > 0) {
+                    bitmap[ind++] = true;
+                }
+            }
+        }
+
         // Provide a sequence of Runs
         internal static IEnumerable<Run> Markup(string content, bool[] map)
         {
             // I think we already eliminated this, but to be sure...
             if (content.Length == 0) {
-                yield break;
+                return new Run[0];
             }
 
+            List<Run> result = new List<Run>();
             // What color to start?
-            bool runMarked = map[0];
+            bool markThisRun = map[0];
             int runpos = 0;
             int pos = 0;
             while (++pos < content.Length) {
                 bool thisMarked = map[pos];
-                if (thisMarked != runMarked) {
-                    Run newrun = new Run(content.Substring(runpos, pos - runpos));
-                    if (runMarked) newrun.Background = highlighter;
-                    yield return newrun;
+                if (thisMarked != markThisRun) {
+                    string runText = content.Substring(runpos, pos - runpos);
+                    Run newrun = new Run(runText);
+                    if (markThisRun ||
+                        // Edge case. We can sometimes get an unmarked punctuation sequence between two marked text sequences.
+                        // But don't mark a lead-in before text. Also, don't bother coalescing it with adjacent runs.
+                        (runpos > 0 && !Regex.IsMatch(runText, @"\w", RegexOptions.Multiline))) {
+                        newrun.Background = highlighter;
+                    }
+                    result.Add(newrun);
                     runpos = pos;
-                    runMarked = thisMarked;
+                    markThisRun = thisMarked;
                 }
             }
 
             Run finalrun = new Run(content.Substring(runpos, pos - runpos));
-            if (runMarked) finalrun.Background = highlighter;
-            yield return finalrun;
+            if (markThisRun) finalrun.Background = highlighter;
+            result.Add(finalrun);
+            return result;
         }
     }
 }
