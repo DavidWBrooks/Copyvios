@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         FontSize="14"
         FocusManager.FocusedElement="{Binding ElementName=articleTitle}"
-        SizeToContent="Height"
         Title="Copyvios" Loaded="WindowLoaded" ContentRendered="Rendered">
     <StackPanel HorizontalAlignment="Left" Margin="0" VerticalAlignment="Top" >
         <StackPanel.Resources>

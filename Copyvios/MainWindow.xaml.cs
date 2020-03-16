@@ -17,7 +17,7 @@ namespace Copyvios
     {
         readonly HttpClient client = new HttpClient();
 
-        double CruftHeight;
+        double StaticHeight;
 
         public MainWindow()
         {
@@ -109,9 +109,6 @@ namespace Copyvios
 
         private void WindowLoaded(object sender, RoutedEventArgs e)
         {
-            CruftHeight = this.ActualHeight - WPViewer.ActualHeight;
-            SizeChanged += Resized;
-
             string[] args = Environment.GetCommandLineArgs();
             if (args.Length > 1) articleTitle.Text = args[1];
             if (args.Length > 2) URL.Text = args[2];
@@ -226,13 +223,16 @@ namespace Copyvios
 
         private void Resized(object sender, SizeChangedEventArgs e)
         {
-            double newHeight = this.ActualHeight - CruftHeight;
+            double newHeight = this.ActualHeight - StaticHeight;
             WPViewer.Height = newHeight;
             EBViewer.Height = newHeight;
         }
 
         private void Rendered(object sender, EventArgs e)
         {
+            StaticHeight = this.ActualHeight - WPViewer.ActualHeight;
+            SizeChanged += Resized;
+
             if (articleTitle.Text.Length > 0 && URL.Text.Length > 0) {
                 DoComparison();
             }
