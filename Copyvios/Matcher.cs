@@ -50,7 +50,8 @@ namespace Copyvios
             "by", "for", "or", "and", "s" };    // s seems to be a word if preceded by apostrophe
         static readonly int[] smallhashes = smallwords.Select(w => w.GetHashCode()).ToArray();
         const Int64 guardhash = 0;
-        static readonly Brush highlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0xAA));
+        static readonly Brush highlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0xAA));//
+        static readonly Brush mediumlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xD0, 0xB0));
 
         // Produce a list of words as their hashes
         static Word[] WordReduce(string text)
@@ -159,15 +160,22 @@ namespace Copyvios
             int runpos = 0;
             int pos = 0;
             while (++pos < content.Length) {
+                // Punctuation is part of the current run, regardless of signifiance mark.
+                // We can sometimes get an unmarked punctuation sequence between two marked text sequences.
+                if (!Char.IsLetterOrDigit(content[pos]))
+                    continue;
                 bool thisMarked = map[pos];
                 if (thisMarked != markThisRun) {
                     string runText = content.Substring(runpos, pos - runpos);
                     Run newrun = new Run(runText);
-                    if (markThisRun ||
-                        // Edge case. We can sometimes get an unmarked punctuation sequence between two marked text sequences.
-                        // But don't mark a lead-in before text. Also, don't bother coalescing it with adjacent runs.
-                        (runpos > 0 && !Regex.IsMatch(runText, @"\w", RegexOptions.Multiline))) {
+                    if (markThisRun) {
                         newrun.Background = highlighter;
+                    } else {
+                        // Inspired by copyleaks.com: lighter color if it's just one word
+                        if (!Regex.IsMatch(runText.Trim(), @"\s")) {
+                            newrun.Background = mediumlighter;
+                        }
+
                     }
                     result.Add(newrun);
                     runpos = pos;

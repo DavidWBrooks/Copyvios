@@ -78,7 +78,7 @@
             <RichTextBox x:Name="EBViewer" Grid.Column="1" Height="600" Grid.Row="1">
                 <FlowDocument>
                     <Paragraph x:Name="EBPara">
-                        <Run Text="The EB text will appear here"/>
+                        <Run Text="The external text will appear here"/>
                     </Paragraph>
                 </FlowDocument>
             </RichTextBox>
