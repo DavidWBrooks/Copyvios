@@ -47,7 +47,7 @@ namespace Copyvios
             }
 
             string wpAction =
-                "https://en.wikipedia.org/w/api.php?action=query&format=xml&prop=revisions&rvslots=main&rvprop=content&titles=" + 
+                "https://en.wikipedia.org/w/api.php?action=query&format=xml&prop=revisions&rvslots=main&rvprop=content&titles=" +
                 article;
             string ebhttp, wphttp;
 
@@ -157,16 +157,8 @@ namespace Copyvios
 
             // Now-empty bulleted lists are fairly common
             wptext = Regex.Replace(wptext.ToString(), @"^\s*\*\s*$", "", RegexOptions.Multiline);
-            wptext = WebUtility.HtmlDecode(wptext);
 
-            // Finally trim runs of newline
-            while (true) {
-                int len = wptext.Length;
-                wptext = wptext.Replace("\n\n\n", "\n\n");
-                if (wptext.Length == len) break;
-            }
-
-            return wptext.TrimStart('\n');
+            return FinalTrim(wptext);
         }
 
         private string StripEB(string ebhttp)
@@ -174,33 +166,47 @@ namespace Copyvios
             string result;
 
             // Extract body if there is one
-            Match m = Regex.Match(ebhttp, "<body[^>]*>(.*)</body>", RegexOptions.Singleline);
+            Match m = Regex.Match(ebhttp, "<body[^>]*>(.*)</body>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
             result = m.Success ? m.Groups[1].Value : ebhttp;
 
             // Strip to the first para marker
-            int pmarker = result.IndexOf("<p>");
+            int pmarker = result.IndexOf("<p>", StringComparison.CurrentCultureIgnoreCase);
             if (pmarker >= 0) {
                 result = result.Substring(pmarker + 3);
             }
 
             // Strip from the last end-paragraph marker
-            pmarker = result.LastIndexOf("</p>");
+            pmarker = result.LastIndexOf("</p>", StringComparison.CurrentCultureIgnoreCase);
             if (pmarker >= 0) {
                 result = result.Substring(0, pmarker);
             }
 
             // Replace paragraph markers with newline and remove most remaining HTML markup
-            // Does this do the right thing with italics etc?
 
-            result = result.Replace("<p>", "\n");
+            result = result.Replace("<p>", "\n").Replace("<P>", "\n");
             result = Regex.Replace(result, "<[^>]*>", "");
+
+            return FinalTrim(result);
+        }
+
+        // This is a little ad-hoc, and deals with some odd circumstances that result from stripping
+        private static string FinalTrim(string str)
+        {
+            string result = WebUtility.HtmlDecode(str);
+
+            // Whitespace cleanup is getting a little out of hand; needs another look
+            // Common artefact of template suppression:
+            result = Regex.Replace(result, @"^[ \t]*$", String.Empty, RegexOptions.Multiline);
+
             while (true) {
                 int len = result.Length;
                 result = result.Replace("\n\n\n", "\n\n");
                 if (result.Length == len) break;
             }
 
-            return WebUtility.HtmlDecode(result);
+            // There could be leading and trailing whitespace, but need a final nl for the
+            // scroller to display the last line
+            return result.Trim() + '\n';
         }
 
         private void Status(string message)
