@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -51,6 +52,8 @@ namespace Copyvios
                 article;
             string ebhttp, wphttp;
 
+            Stopwatch timer = Stopwatch.StartNew();
+
             string what = "Reading the URL: ";
             try {
                 ebhttp = client.GetStringAsync(url).Result;
@@ -66,6 +69,9 @@ namespace Copyvios
                 return;
             }
 
+            long downloadms = timer.ElapsedMilliseconds;
+            timer.Restart();
+
             string wpcontent, ebcontent;
 
             try {
@@ -77,6 +83,8 @@ namespace Copyvios
                 return;
             }
 
+            long stripms = timer.ElapsedMilliseconds;
+
             WPHeading.Content = article;
             Reload(wpcontent, ebcontent);
 
@@ -85,22 +93,42 @@ namespace Copyvios
                 return;
             }
 
+            timer.Restart();
+
             List<Chunk> wpchunks = Matcher.Reducer(wpcontent);
             List<Chunk> ebchunks = Matcher.Reducer(ebcontent);
 
+            long reducems = timer.ElapsedMilliseconds;
+            timer.Restart();
+
             // Mark the chunks that match the opposite number
             Matcher.Marker(wpchunks, ebchunks);
+
+            long markms = timer.ElapsedMilliseconds;
 
             // Use the matched chunks to map to a bitmap of the original text
             bool[] wpmap = new bool[wpcontent.Length];
             bool[] ebmap = new bool[ebcontent.Length];
 
+            timer.Restart();
+
             Matcher.Mapper(wpchunks, wpmap);
             Matcher.Mapper(ebchunks, ebmap);
+
+            long mapms = timer.ElapsedMilliseconds;
+            timer.Restart();
 
             // Finally generate a sequence of Runs
             IEnumerable<Run> wpruns = Matcher.Markup(wpcontent, wpmap);
             IEnumerable<Run> ebruns = Matcher.Markup(ebcontent, ebmap);
+
+            long markupms = timer.ElapsedMilliseconds;
+            timer.Stop();
+#if DEBUG
+            string timing = $"{downloadms},{stripms},{reducems},{markms},{mapms},{markupms}{Environment.NewLine}";
+            ebruns = System.Linq.Enumerable.Concat(new Run[]{new Run(timing)}, ebruns);
+#endif
+
             Reload(wpruns, ebruns);
 
             double elapsed = (DateTime.Now - starttime).TotalSeconds;
@@ -218,8 +246,10 @@ namespace Copyvios
         {
             WPPara.Inlines.Clear();
             WPPara.Inlines.AddRange(wpruns);
+            WPViewer.ScrollToHome();
             EBPara.Inlines.Clear();
             EBPara.Inlines.AddRange(ebruns);
+            EBViewer.ScrollToHome();
         }
 
         private void Reload(string wpstring, string ebstring)
