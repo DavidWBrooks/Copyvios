@@ -96,7 +96,7 @@ namespace Copyvios
                     newgram = (newgram << 8) ^ (UInt32)h;
                     if (!smallhashes.Contains(h)) sig = true;
                 }
-                if (sig && newgram != 0) {
+                if (sig && newgram != 0) {  // Although newgram can theoretically be 0, testing shows it very rare.
                     result.Add(new Chunk(start, thisword.startpos - start + thisword.len, newgram));
                 }
 
@@ -111,7 +111,7 @@ namespace Copyvios
                             break;
                     }
                 }
-                if (newgram != 0) {
+                if (newgram != 0) {     // Although this can theoretically be 0, testing shows it very rare.
                     result.Add(new Chunk(start, thisword.startpos - start + thisword.len, newgram));
                 }
             }
@@ -160,22 +160,21 @@ namespace Copyvios
             int runpos = 0;
             int pos = 0;
             while (++pos < content.Length) {
-                // Punctuation is part of the current run, regardless of signifiance mark.
-                // We can sometimes get an unmarked punctuation sequence between two marked text sequences.
-                if (!Char.IsLetterOrDigit(content[pos]))
-                    continue;
                 bool thisMarked = map[pos];
                 if (thisMarked != markThisRun) {
                     string runText = content.Substring(runpos, pos - runpos);
                     Run newrun = new Run(runText);
-                    if (markThisRun) {
+                    if (markThisRun ||
+                        // We can sometimes get an unmarked punctuation sequence between two marked text sequences.
+                        // It's a bit inefficient to have consecutive runs the same color, but it's rare.
+                        !Regex.IsMatch(runText, @"\w")) {
                         newrun.Background = highlighter;
-                    } else {
-                        // Inspired by copyleaks.com: lighter color if it's just one word
-                        if (!Regex.IsMatch(runText.Trim(), @"\s")) {
+                    }
+                    else {
+                        // Inspired by copyleaks.com: lighter color if it's just one unpunctuated word
+                        if (Regex.IsMatch(runText, @"^\s*\w+\s*$")) {
                             newrun.Background = mediumlighter;
                         }
-
                     }
                     result.Add(newrun);
                     runpos = pos;
