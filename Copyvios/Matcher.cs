@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Documents;
 using System.Windows.Media;
 
@@ -120,12 +122,28 @@ namespace Copyvios
             return result;
         }
 
-
-        // Match and mark both sides. Using a more efficient lookup with a dictionary of lists would make this
-        // O(n) instead of O(n^2), but this simpler search is rarely expensive compared with web access.
-        public static void Marker(List<Chunk> wpchunks, List<Chunk> ebchunks)
+        // Match and mark both sides. Using a more efficient lookup with a dictionary of lists could make this
+        // O(n) instead of O(n^2), but this simpler search is rarely expensive compared with web access. Also, it
+        // seemed that the structures needed to support O(n) were expensive themselves.
+        // Using a 2x parallelization helps (on a 2-core box) but only by about 20% even on a large page. You
+        // probably have at least two cores, and we trust the thread pool will use them.
+        // Testing shows that two explicit tasks is faster than a single side-task or specific thread, go figure.
+        // There may be occasionaly contention in setting isMatch, but it can only ever be setting true.
+        public static void Marker(IList<Chunk> wpchunks, IList<Chunk> ebchunks)
         {
-            foreach (Chunk wpchunk in wpchunks) {
+            int half = wpchunks.Count / 2;
+
+            Task[] subtasks = new Task[2];
+            subtasks[0] = Task.Run(() => MarkSubset(wpchunks, ebchunks, 0, half));
+            subtasks[1] = Task.Run(() => MarkSubset(wpchunks, ebchunks, half, wpchunks.Count));
+
+            Task.WaitAll(subtasks);
+        }
+
+        private static void MarkSubset(IList<Chunk> wpchunks, IList<Chunk> ebchunks, int startind, int end)
+        {
+            for (int i = startind; i < end; i++) {
+                Chunk wpchunk = wpchunks[i];
                 foreach (Chunk ebchunk in ebchunks) {
                     if (wpchunk.hash == ebchunk.hash) {
                         wpchunk.isMatch = ebchunk.isMatch = true;

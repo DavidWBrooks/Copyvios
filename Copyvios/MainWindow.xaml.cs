@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Xml;
 
 namespace Copyvios
@@ -15,8 +18,6 @@ namespace Copyvios
     /// </summary>
     public partial class MainWindow : Window
     {
-        readonly HttpClient client = new HttpClient();
-
         double StaticHeight;
 
         public MainWindow()
@@ -51,20 +52,36 @@ namespace Copyvios
                 article;
             string ebhttp, wphttp;
 
-            string what = "Reading the URL: ";
-            try {
-                ebhttp = client.GetStringAsync(url).Result;
-                what = "Reading the Wikipedia article: ";
-                wphttp = client.GetStringAsync(wpAction).Result;
+            Stopwatch timer = new Stopwatch();
+            long downloadms;
+
+            using (HttpClient client = new HttpClient()) {
+                timer.Start();
+
+                using (Task<string> ebdownload = client.GetStringAsync(url),
+                                    wpdownload = client.GetStringAsync(wpAction)) {
+
+                    // As we will wait for both, the order doesn't matter
+                    string what = "Reading the URL: ";
+                    try {
+                        ebhttp = ebdownload.Result;
+                        what = "Reading the Wikipedia article: ";
+                        wphttp = wpdownload.Result;
+                    }
+                    catch (AggregateException aex) {
+                        MessageBox.Show(what + aex.InnerException.Message);
+                        return;
+                    }
+                    catch (Exception ex) {
+                        MessageBox.Show(what + ex.Message);
+                        return;
+                    }
+
+                    downloadms = timer.ElapsedMilliseconds;
+                }
             }
-            catch (AggregateException aex) {
-                MessageBox.Show(what + aex.InnerException.Message);
-                return;
-            }
-            catch (Exception ex) {
-                MessageBox.Show(what + ex.Message);
-                return;
-            }
+
+            timer.Restart();
 
             string wpcontent, ebcontent;
 
@@ -77,6 +94,8 @@ namespace Copyvios
                 return;
             }
 
+            long stripms = timer.ElapsedMilliseconds;
+
             WPHeading.Content = article;
             Reload(wpcontent, ebcontent);
 
@@ -85,26 +104,46 @@ namespace Copyvios
                 return;
             }
 
+            timer.Restart();
+
             List<Chunk> wpchunks = Matcher.Reducer(wpcontent);
             List<Chunk> ebchunks = Matcher.Reducer(ebcontent);
 
+            long reducems = timer.ElapsedMilliseconds;
+            timer.Restart();
+
             // Mark the chunks that match the opposite number
             Matcher.Marker(wpchunks, ebchunks);
+
+            long markms = timer.ElapsedMilliseconds;
 
             // Use the matched chunks to map to a bitmap of the original text
             bool[] wpmap = new bool[wpcontent.Length];
             bool[] ebmap = new bool[ebcontent.Length];
 
+            timer.Restart();
+
             Matcher.Mapper(wpchunks, wpmap);
             Matcher.Mapper(ebchunks, ebmap);
+
+            long mapms = timer.ElapsedMilliseconds;
+            timer.Restart();
 
             // Finally generate a sequence of Runs
             IEnumerable<Run> wpruns = Matcher.Markup(wpcontent, wpmap);
             IEnumerable<Run> ebruns = Matcher.Markup(ebcontent, ebmap);
+
+            long markupms = timer.ElapsedMilliseconds;
+            timer.Stop();
+
             Reload(wpruns, ebruns);
 
+#if DEBUG
+            Status($"{downloadms}, {stripms}, {reducems}, {markms}, {mapms}, {markupms}");
+#else
             double elapsed = (DateTime.Now - starttime).TotalSeconds;
             Status($"Total time: {elapsed:N1} seconds");
+#endif
         }
 
         private void WindowLoaded(object sender, RoutedEventArgs e)
@@ -218,8 +257,10 @@ namespace Copyvios
         {
             WPPara.Inlines.Clear();
             WPPara.Inlines.AddRange(wpruns);
+            WPViewer.ScrollToHome();
             EBPara.Inlines.Clear();
             EBPara.Inlines.AddRange(ebruns);
+            EBViewer.ScrollToHome();
         }
 
         private void Reload(string wpstring, string ebstring)
