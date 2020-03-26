@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Xml;
 
 namespace Copyvios
@@ -134,15 +135,15 @@ namespace Copyvios
 
             long markupms = timer.ElapsedMilliseconds;
             timer.Stop();
-#if DEBUG
-            string timing = $"{downloadms},{stripms},{reducems},{markms},{mapms},{markupms}{Environment.NewLine}";
-            ebruns = System.Linq.Enumerable.Concat(new Run[]{new Run(timing)}, ebruns);
-#endif
 
             Reload(wpruns, ebruns);
 
+#if DEBUG
+            Status($"{downloadms}, {stripms}, {reducems}, {markms}, {mapms}, {markupms}");
+#else
             double elapsed = (DateTime.Now - starttime).TotalSeconds;
             Status($"Total time: {elapsed:N1} seconds");
+#endif
         }
 
         private void WindowLoaded(object sender, RoutedEventArgs e)
