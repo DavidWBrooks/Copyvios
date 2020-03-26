@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
 using System.Xml;
@@ -16,8 +17,6 @@ namespace Copyvios
     /// </summary>
     public partial class MainWindow : Window
     {
-        readonly HttpClient client = new HttpClient();
-
         double StaticHeight;
 
         public MainWindow()
@@ -52,13 +51,21 @@ namespace Copyvios
                 article;
             string ebhttp, wphttp;
 
+            HttpClient client = new HttpClient();
+
             Stopwatch timer = Stopwatch.StartNew();
 
+            Task<string> ebdownload = client.GetStringAsync(url);
+            Task<string> wpdownload = client.GetStringAsync(wpAction);
+
+            // As we will wait for both, the order doesn't matter
             string what = "Reading the URL: ";
             try {
-                ebhttp = client.GetStringAsync(url).Result;
+                ebhttp = ebdownload.Result;
+                ebdownload.Dispose();
                 what = "Reading the Wikipedia article: ";
-                wphttp = client.GetStringAsync(wpAction).Result;
+                wphttp = wpdownload.Result;
+                wpdownload.Dispose();
             }
             catch (AggregateException aex) {
                 MessageBox.Show(what + aex.InnerException.Message);
@@ -70,6 +77,9 @@ namespace Copyvios
             }
 
             long downloadms = timer.ElapsedMilliseconds;
+
+            client.Dispose();
+
             timer.Restart();
 
             string wpcontent, ebcontent;
