@@ -52,34 +52,34 @@ namespace Copyvios
                 article;
             string ebhttp, wphttp;
 
-            HttpClient client = new HttpClient();
+            Stopwatch timer = new Stopwatch();
+            long downloadms;
 
-            Stopwatch timer = Stopwatch.StartNew();
+            using (HttpClient client = new HttpClient()) {
+                timer.Start();
 
-            Task<string> ebdownload = client.GetStringAsync(url);
-            Task<string> wpdownload = client.GetStringAsync(wpAction);
+                using (Task<string> ebdownload = client.GetStringAsync(url),
+                                    wpdownload = client.GetStringAsync(wpAction)) {
 
-            // As we will wait for both, the order doesn't matter
-            string what = "Reading the URL: ";
-            try {
-                ebhttp = ebdownload.Result;
-                ebdownload.Dispose();
-                what = "Reading the Wikipedia article: ";
-                wphttp = wpdownload.Result;
-                wpdownload.Dispose();
+                    // As we will wait for both, the order doesn't matter
+                    string what = "Reading the URL: ";
+                    try {
+                        ebhttp = ebdownload.Result;
+                        what = "Reading the Wikipedia article: ";
+                        wphttp = wpdownload.Result;
+                    }
+                    catch (AggregateException aex) {
+                        MessageBox.Show(what + aex.InnerException.Message);
+                        return;
+                    }
+                    catch (Exception ex) {
+                        MessageBox.Show(what + ex.Message);
+                        return;
+                    }
+
+                    downloadms = timer.ElapsedMilliseconds;
+                }
             }
-            catch (AggregateException aex) {
-                MessageBox.Show(what + aex.InnerException.Message);
-                return;
-            }
-            catch (Exception ex) {
-                MessageBox.Show(what + ex.Message);
-                return;
-            }
-
-            long downloadms = timer.ElapsedMilliseconds;
-
-            client.Dispose();
 
             timer.Restart();
 
