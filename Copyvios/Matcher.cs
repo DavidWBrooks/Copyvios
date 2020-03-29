@@ -11,31 +11,40 @@ namespace Copyvios
     // A single word
     public class Word
     {
-        public int startpos;
-        public int len;
-        public int hash;
+        private static readonly string[] commonWords = new[] {
+            "a", "an", "the", "in", "on",
+            "it", "at", "to", "he", "she",
+            "as", "is", "was", "are", "of",
+            "by", "for", "or", "and", "s" };    // s seems to be a word if preceded by apostrophe
+        private static readonly int[] commonHashes = commonWords.Select(w => w.GetHashCode()).ToArray();
+
+        public int StartPos { get; }
+        public int Length { get; }
+        public int Hash { get; }
+        public bool IsCommon { get; }
+
         public Word(int s, int l, string word)
         {
-            startpos = s;
-            len = l;
-            hash = word.GetHashCode();
+            StartPos = s;
+            Length = l;
+            Hash = word.GetHashCode();
+            IsCommon = commonHashes.Contains(Hash);
         }
     }
 
     // A single nGram
     public class Chunk
     {
-        public int startpos;   // Position in the original text
-        public int len;        // Length in the original text
-        public UInt64 hash;
-        public bool isMatch;
+        public int StartPos { get; }    // Position in the original text
+        public int Length { get; }      // Length in the original text
+        public UInt64 Hash { get; }
+        public bool IsMatch { get; set; } = false;
 
         public Chunk(int s, int l, UInt64 h)
         {
-            startpos = s;
-            len = l;
-            hash = h;
-            isMatch = false;
+            StartPos = s;
+            Length = l;
+            Hash = h;
         }
     }
 
@@ -44,12 +53,6 @@ namespace Copyvios
         const int minGram = 3;
         const int maxGram = 5;
 
-        static readonly string[] smallwords = new[] {
-            "a", "an", "the", "in", "on",
-            "it", "at", "to", "he", "she",
-            "as", "is", "was", "are", "of",
-            "by", "for", "or", "and", "s" };    // s seems to be a word if preceded by apostrophe
-        static readonly int[] smallhashes = smallwords.Select(w => w.GetHashCode()).ToArray();
         const Int64 guardhash = 0;
         static readonly Brush highlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0xAA));//
         static readonly Brush mediumlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xD0, 0xB0));
@@ -83,7 +86,7 @@ namespace Copyvios
             // If minGram >5, an 8-bit shift could lose data (in which case either shift fewer bits, or rotate).
             for (int i = 0; i <= (wordlist.Length - maxGram); i++) {
                 Word thisword = wordlist[i];
-                int start = thisword.startpos;
+                int start = thisword.StartPos;
                 UInt64 newgram = 0;
 
                 // After some experimentation with several different algorithms, we seem to get the best results
@@ -93,27 +96,25 @@ namespace Copyvios
                 bool sig = false;
                 for (int j = 0; j < 4; j++) {
                     thisword = wordlist[i + j];
-                    int h = thisword.hash;
-                    newgram = (newgram << 8) ^ (UInt32)h;
-                    if (!smallhashes.Contains(h)) sig = true;
+                    newgram = (newgram << 8) ^ (UInt32)thisword.Hash;
+                    if (!thisword.IsCommon) sig = true;
                 }
                 if (sig && newgram != 0) {  // Although newgram can theoretically be 0, testing shows it very rare.
-                    result.Add(new Chunk(start, thisword.startpos - start + thisword.len, newgram));
+                    result.Add(new Chunk(start, thisword.StartPos - start + thisword.Length, newgram));
                 }
 
                 newgram = 0;
                 int wordsingram = 0;
                 for (int j = i; j < wordlist.Length; j++) {
                     thisword = wordlist[j];
-                    int h = thisword.hash;
-                    if (!smallhashes.Contains(h)) {
-                        newgram = (newgram << 8) ^ (UInt32)h;
+                    if (!thisword.IsCommon) {
+                        newgram = (newgram << 8) ^ (UInt32)thisword.Hash;
                         if (++wordsingram == minGram)
                             break;
                     }
                 }
                 if (newgram != 0) {     // Although this can theoretically be 0, testing shows it very rare.
-                    result.Add(new Chunk(start, thisword.startpos - start + thisword.len, newgram));
+                    result.Add(new Chunk(start, thisword.StartPos - start + thisword.Length, newgram));
                 }
             }
 
@@ -144,8 +145,8 @@ namespace Copyvios
             for (int i = startind; i < end; i++) {
                 Chunk wpchunk = wpchunks[i];
                 foreach (Chunk ebchunk in ebchunks) {
-                    if (wpchunk.hash == ebchunk.hash) {
-                        wpchunk.isMatch = ebchunk.isMatch = true;
+                    if (wpchunk.Hash == ebchunk.Hash) {
+                        wpchunk.IsMatch = ebchunk.IsMatch = true;
                     }
                 }
             }
@@ -154,9 +155,9 @@ namespace Copyvios
         // Consolidate chunks into an array of on/off settings
         public static void Mapper(List<Chunk> chunks, bool[] bitmap)
         {
-            foreach (Chunk chunk in chunks.Where(c => c.isMatch)) {
-                int ind = chunk.startpos;
-                int length = chunk.len;
+            foreach (Chunk chunk in chunks.Where(c => c.IsMatch)) {
+                int ind = chunk.StartPos;
+                int length = chunk.Length;
                 while (length-- > 0) {
                     bitmap[ind++] = true;
                 }
