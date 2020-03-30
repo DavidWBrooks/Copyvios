@@ -15,8 +15,8 @@ namespace Copyvios
             "a", "an", "the", "in", "on",
             "it", "at", "to", "he", "she",
             "as", "is", "was", "are", "of",
-            "by", "for", "or", "and", "s" };    // s seems to be a word if preceded by apostrophe
-        private static readonly int[] commonHashes = commonWords.Select(w => w.GetHashCode()).ToArray();
+            "by", "for", "or", "and", "s" };    // s acts as a word if preceded by apostrophe
+        private static readonly HashSet<int> commonHashes = new HashSet<int>(commonWords.Select(w => w.GetHashCode()));
 
         public int StartPos { get; }
         public int Length { get; }
@@ -57,29 +57,31 @@ namespace Copyvios
         static readonly Brush highlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0xAA));//
         static readonly Brush mediumlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xD0, 0xB0));
 
-        // Produce a list of words as their hashes
+        // Produce an array of words as their hashes
         static Word[] WordReduce(string text)
         {
             MatchCollection matches = Regex.Matches(text.ToLower(), @"\w+");
-            List<Word> result = new List<Word>(matches.Count);
+            // At this point we know the required array capacity
+            Word[] result = new Word[matches.Count + maxGram - minGram];
+            int arrind = 0;
             foreach (Match m in matches) {
-                result.Add(new Word(m.Index, m.Length, m.Value));
+                result[arrind++] = new Word(m.Index, m.Length, m.Value);
             }
 
             // Some guards that should work with the above logic
             for (int i = minGram; i < maxGram; i++) {
-                result.Add(new Word(text.Length, 0, "a"));
+                result[arrind++] = new Word(text.Length, 0, "a");
             }
-            return result.ToArray();
+            return result;
         }
 
         // Produce a list of nGrams
         public static List<Chunk> Reducer(string text)
         {
             Word[] wordlist = WordReduce(text);
-            List<Chunk> result = new List<Chunk>(wordlist.Length + 1);
+            List<Chunk> result = new List<Chunk>(wordlist.Length * 2);  // This is a small overestimate of capacity
 
-            // Work through word sequences, ending 5 away from the end of the list
+            // Work through word sequences, ending maxGram away from the end of the list
             // Yes, adjacent grams will have overlapping words.
             // When accumulating, if you don't shift-left, the words can be in any order.
             // But forget the shift if you actually want the "unordered" logic (in which case the hash can be 32-bit).
@@ -165,14 +167,16 @@ namespace Copyvios
         }
 
         // Provide a sequence of Runs
+        // You could feather these with judicious use of LinearGradientBrush, were you so inclined.
         internal static IEnumerable<Run> Markup(string content, bool[] map)
         {
+            List<Run> result = new List<Run>();
+
             // I think we already eliminated this, but to be sure...
             if (content.Length == 0) {
-                return new Run[0];
+                return result;
             }
 
-            List<Run> result = new List<Run>();
             // What color to start?
             bool markThisRun = map[0];
             int runpos = 0;
