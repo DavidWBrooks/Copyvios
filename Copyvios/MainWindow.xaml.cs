@@ -26,9 +26,12 @@ namespace Copyvios
             InitializeComponent();
         }
 
-        // Tried doing this with async work but got weird cross-thread errors
         private void StartComparison(object sender, RoutedEventArgs e)
         {
+            if (!BothFieldsPresent()) {
+                MessageBox.Show("Provide both fields");
+                return;
+            }
             DoComparison();
         }
 
@@ -37,33 +40,25 @@ namespace Copyvios
             DateTime starttime = DateTime.Now;
             string article = articleTitle.Text;
             string url = URL.Text;
-            if (String.IsNullOrWhiteSpace(article) || String.IsNullOrWhiteSpace(url)) {
-                MessageBox.Show("Provide both fields");
+            if (!Regex.IsMatch(url, "^https?://.", RegexOptions.IgnoreCase)) {
+                MessageBox.Show("URL must start with http[s]://");
                 return;
             }
 
-            if (!Regex.IsMatch(url, "^https?://", RegexOptions.IgnoreCase)) {
-                url = "https://en.wikisource.org/wiki/1911_Encyclopædia_Britannica/" + Uri.EscapeDataString(url.Replace(' ', '_'));
-            }
-
             string wpAction =
-                "https://en.wikipedia.org/w/api.php?action=query&format=xml&prop=revisions&rvslots=main&rvprop=content&titles=" +
-                article;
-            string ebhttp, wphttp;
+            "https://en.wikipedia.org/w/api.php?action=query&format=xml&prop=revisions&rvslots=main&rvprop=content&titles=" +
+            article;
+            string urlhttp, wphttp;
 
-            Stopwatch timer = new Stopwatch();
-            long downloadms;
-
+            // Testing shows one HttpClient can handle two simultaneous requests (documentation isn't clear on that)
             using (HttpClient client = new HttpClient()) {
-                timer.Start();
-
-                using (Task<string> ebdownload = client.GetStringAsync(url),
+                using (Task<string> urldownload = client.GetStringAsync(url),
                                     wpdownload = client.GetStringAsync(wpAction)) {
 
                     // As we will wait for both, the order doesn't matter
                     string what = "Reading the URL: ";
                     try {
-                        ebhttp = ebdownload.Result;
+                        urlhttp = urldownload.Result;
                         what = "Reading the Wikipedia article: ";
                         wphttp = wpdownload.Result;
                     }
@@ -75,74 +70,49 @@ namespace Copyvios
                         MessageBox.Show(what + ex.Message);
                         return;
                     }
-
-                    downloadms = timer.ElapsedMilliseconds;
                 }
             }
 
-            timer.Restart();
-
-            string wpcontent, ebcontent;
+            string wpcontent, urlcontent;
 
             try {
                 wpcontent = StripWP(wphttp);
-                ebcontent = StripEB(ebhttp);
+                urlcontent = StripUrl(urlhttp);
             }
             catch (Exception ex) {  // surface any fatal error
                 MessageBox.Show(ex.Message);
                 return;
             }
 
-            long stripms = timer.ElapsedMilliseconds;
-
             WPHeading.Content = article;
-            Reload(wpcontent, ebcontent);
+            Reload(wpcontent, urlcontent);
 
-            if (wpcontent.Length == 0 || ebcontent.Length == 0) {   // Weird, right?
+            if (wpcontent.Length == 0 || urlcontent.Length == 0) {   // Weird, right?
                 Status("Nothing to see here");
                 return;
             }
 
-            timer.Restart();
-
             List<Chunk> wpchunks = Matcher.Reducer(wpcontent);
-            List<Chunk> ebchunks = Matcher.Reducer(ebcontent);
-
-            long reducems = timer.ElapsedMilliseconds;
-            timer.Restart();
+            List<Chunk> urlchunks = Matcher.Reducer(urlcontent);
 
             // Mark the chunks that match the opposite number
-            Matcher.Marker(wpchunks, ebchunks);
-
-            long markms = timer.ElapsedMilliseconds;
+            Matcher.Marker(wpchunks, urlchunks);
 
             // Use the matched chunks to map to a bitmap of the original text
             bool[] wpmap = new bool[wpcontent.Length];
-            bool[] ebmap = new bool[ebcontent.Length];
-
-            timer.Restart();
+            bool[] urlmap = new bool[urlcontent.Length];
 
             Matcher.Mapper(wpchunks, wpmap);
-            Matcher.Mapper(ebchunks, ebmap);
-
-            long mapms = timer.ElapsedMilliseconds;
-            timer.Restart();
+            Matcher.Mapper(urlchunks, urlmap);
 
             // Finally generate a sequence of Runs
             IEnumerable<Run> wpruns = Matcher.Markup(wpcontent, wpmap);
-            IEnumerable<Run> ebruns = Matcher.Markup(ebcontent, ebmap);
+            IEnumerable<Run> urlruns = Matcher.Markup(urlcontent, urlmap);
 
-            long markupms = timer.ElapsedMilliseconds;
-            timer.Stop();
+            Reload(wpruns, urlruns);
 
-            Reload(wpruns, ebruns);
-
-#if DEBUG
-            Status($"{downloadms}, {stripms}, {reducems}, {markms}, {mapms}, {markupms}");
-#else
             double elapsed = (DateTime.Now - starttime).TotalSeconds;
             Status($"Total time: {elapsed:N1} seconds");
-#endif
         }
 
         private void WindowLoaded(object sender, RoutedEventArgs e)
@@ -199,13 +169,13 @@ namespace Copyvios
             return FinalTrim(wptext);
         }
 
-        private string StripEB(string ebhttp)
+        private string StripUrl(string urlhttp)
         {
             string result;
 
             // Extract body if there is one
-            Match m = Regex.Match(ebhttp, "<body[^>]*>(.*)</body>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
-            result = m.Success ? m.Groups[1].Value : ebhttp;
+            Match m = Regex.Match(urlhttp, "<body[^>]*>(.*)</body>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            result = m.Success ? m.Groups[1].Value : urlhttp;
 
             // Strip to the first para marker
             int pmarker = result.IndexOf("<p>", StringComparison.CurrentCultureIgnoreCase);
@@ -252,14 +222,14 @@ namespace Copyvios
             Progress.Content = message;
         }
 
-        private void Reload(IEnumerable<Run> wpruns, IEnumerable<Run> ebruns)
+        private void Reload(IEnumerable<Run> wpruns, IEnumerable<Run> urlruns)
         {
             WPPara.Inlines.Clear();
             WPPara.Inlines.AddRange(wpruns);
             WPViewer.ScrollToHome();
-            EBPara.Inlines.Clear();
-            EBPara.Inlines.AddRange(ebruns);
-            EBViewer.ScrollToHome();
+            URLPara.Inlines.Clear();
+            URLPara.Inlines.AddRange(urlruns);
+            URLViewer.ScrollToHome();
         }
 
         private void Reload(string wpstring, string ebstring)
@@ -271,7 +241,7 @@ namespace Copyvios
         {
             double newHeight = this.ActualHeight - StaticHeight;
             WPViewer.Height = newHeight;
-            EBViewer.Height = newHeight;
+            URLViewer.Height = newHeight;
         }
 
         private void Rendered(object sender, EventArgs e)
@@ -279,9 +249,14 @@ namespace Copyvios
             StaticHeight = this.ActualHeight - WPViewer.ActualHeight;
             SizeChanged += Resized;
 
-            if (articleTitle.Text.Length > 0 && URL.Text.Length > 0) {
+            if (BothFieldsPresent()) {
                 DoComparison();
             }
+        }
+
+        private bool BothFieldsPresent()
+        {
+            return !(String.IsNullOrWhiteSpace(articleTitle.Text) || String.IsNullOrWhiteSpace(URL.Text));
         }
     }
 }
