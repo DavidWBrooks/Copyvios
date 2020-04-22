@@ -40,7 +40,7 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Label Content="Article title:"/>
-            <TextBox x:Name="articleTitle" HorizontalAlignment="Left" TextWrapping="Wrap" Width="240" Grid.Column="1" TabIndex="1"/>
+            <TextBox x:Name="articleTitle" HorizontalAlignment="Left" TextWrapping="Wrap" Width="240" Grid.Column="1" TabIndex="1" Margin="4,2"/>
             <Button Content="Compare" Grid.Column="2" HorizontalAlignment="Center" IsDefault="True" Click="StartComparison" Margin="6,2" />
             <Label x:Name="Progress" Grid.Column="3" />
             <Label Content="External URL:" HorizontalAlignment="Left" Grid.Row="1"/>
