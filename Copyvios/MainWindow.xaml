@@ -4,6 +4,11 @@
         FontSize="14"
         FocusManager.FocusedElement="{Binding ElementName=articleTitle}"
         Title="Copyvios" Loaded="WindowLoaded" ContentRendered="Rendered">
+    <Window.Resources>
+        <SolidColorBrush x:Key="Highlight" Color="#FAA" />
+        <SolidColorBrush x:Key="Mediumlight" Color="#FFD0B0" />
+        <SolidColorBrush x:Key="GrayText" Color="{DynamicResource {x:Static SystemColors.GrayTextColorKey}}" />
+    </Window.Resources>
     <StackPanel HorizontalAlignment="Left" Margin="0" VerticalAlignment="Top" >
         <StackPanel.Resources>
             <Style TargetType="Label">
@@ -41,7 +46,7 @@
             </Grid.ColumnDefinitions>
             <Label Content="Article title:"/>
             <TextBox x:Name="articleTitle" HorizontalAlignment="Left" TextWrapping="Wrap" Width="240" Grid.Column="1" TabIndex="1" Margin="4,2"/>
-            <Button Content="Compare" Grid.Column="2" HorizontalAlignment="Center" IsDefault="True" Click="StartComparison" Margin="6,2" />
+            <Button x:Name="CompareButton" Content="Compare" Grid.Column="2" HorizontalAlignment="Center" IsDefault="True" Click="CompareClick" Margin="6,2" />
             <Label x:Name="Progress" Grid.Column="3" />
             <Label Content="External URL:" HorizontalAlignment="Left" Grid.Row="1"/>
             <TextBox x:Name="URL" Grid.Column="1" Grid.Row="1" TextWrapping="Wrap" Grid.ColumnSpan="3" TabIndex="2" Margin="4,2"/>

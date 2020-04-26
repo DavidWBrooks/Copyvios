@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -8,59 +7,73 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Xml;
 
 namespace Copyvios
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
-        double StaticHeight;
+        private readonly Brush highlighter;
+        private readonly Brush mediumlighter;
+        private readonly Brush graytext;
+
+        private double StaticHeight;
 
         public MainWindow()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             Regex.CacheSize = 20;
             InitializeComponent();
+
+            highlighter = (Brush)Resources["Highlight"];
+            mediumlighter = (Brush)Resources["Mediumlight"];
+            graytext = (Brush)Resources["GrayText"];
         }
 
-        private void StartComparison(object sender, RoutedEventArgs e)
+        private void CompareClick(object sender, RoutedEventArgs e)
         {
             if (!BothFieldsPresent()) {
                 MessageBox.Show("Provide both fields");
                 return;
             }
-            DoComparison();
+            StartComparison();
         }
 
-        private void DoComparison()
+        private async void StartComparison()
+        {
+            CompareButton.IsEnabled = false;
+            await DoComparison();
+            CompareButton.IsEnabled = true;
+        }
+
+        private async Task DoComparison()
         {
             DateTime starttime = DateTime.Now;
             string article = articleTitle.Text;
             string url = URL.Text;
-            if (!Regex.IsMatch(url, "^https?://.", RegexOptions.IgnoreCase)) {
+
+            bool shortcut = !Regex.IsMatch(url, "^https?://.", RegexOptions.IgnoreCase);
+            if (shortcut) {
                 MessageBox.Show("URL must start with http[s]://");
                 return;
             }
-
             string wpAction =
             "https://en.wikipedia.org/w/api.php?action=query&format=xml&prop=revisions&rvslots=main&rvprop=content&titles=" +
             article;
+
             string urlhttp, wphttp;
 
+            Status("Loading articles...");
             // Testing shows one HttpClient can handle two simultaneous requests (documentation isn't clear on that)
             using (HttpClient client = new HttpClient()) {
-                using (Task<string> urldownload = client.GetStringAsync(url),
-                                    wpdownload = client.GetStringAsync(wpAction)) {
-
-                    // As we will wait for both, the order doesn't matter
-                    string what = "Reading the URL: ";
+                // Wait for both HTTP calls, so it doesn't matter which is awaited.
+                using (Task<string> urldownload = client.GetStringAsync(url)) {
+                    string what = "Reading the Wikipedia article: ";
                     try {
-                        urlhttp = urldownload.Result;
-                        what = "Reading the Wikipedia article: ";
-                        wphttp = wpdownload.Result;
+                        wphttp = await client.GetStringAsync(wpAction);
+                        what = shortcut ? "Reading the EB1911 article: " : "Reading the URL: ";
+                        urlhttp = await urldownload;
                     }
                     catch (AggregateException aex) {
                         MessageBox.Show(what + aex.InnerException.Message);
@@ -73,7 +86,18 @@ namespace Copyvios
                 }
             }
 
+            // Go compute-bound
+            await Task.Run(() => ComputeMatches(wphttp, urlhttp));
+
+            double elapsed = (DateTime.Now - starttime).TotalSeconds;
+            Status($"Total time: {elapsed:N1} seconds");
+        }
+
+        private void ComputeMatches(string wphttp, string urlhttp)
+        {
             string wpcontent, urlcontent;
+
+            Status("Simplifying text...");
 
             try {
                 wpcontent = StripWP(wphttp);
@@ -84,17 +108,22 @@ namespace Copyvios
                 return;
             }
 
-            WPHeading.Content = article;
-            Reload(wpcontent, urlcontent);
+            Dispatcher.Invoke(() =>
+            {
+                WPHeading.Content = articleTitle.Text;
+                Reload(wpcontent, urlcontent, graytext);
+            });
 
             if (wpcontent.Length == 0 || urlcontent.Length == 0) {   // Weird, right?
                 Status("Nothing to see here");
                 return;
             }
 
+            Status("Constructing sequences...");
             List<Chunk> wpchunks = Matcher.Reducer(wpcontent);
             List<Chunk> urlchunks = Matcher.Reducer(urlcontent);
 
+            Status("Marking sequences...");
             // Mark the chunks that match the opposite number
             Matcher.Marker(wpchunks, urlchunks);
 
@@ -105,14 +134,12 @@ namespace Copyvios
             Matcher.Mapper(wpchunks, wpmap);
             Matcher.Mapper(urlchunks, urlmap);
 
-            // Finally generate a sequence of Runs
-            IEnumerable<Run> wpruns = Matcher.Markup(wpcontent, wpmap);
-            IEnumerable<Run> urlruns = Matcher.Markup(urlcontent, urlmap);
+            // Finally generate a sequence of Runs. These abstract runs are converted to Windows Runs on the UI thread.
+            // You could feather these with judicious use of LinearGradientBrush, were you so inclined.
+            IEnumerable<Sequence> wpseqs = Matcher.Markup(wpcontent, wpmap);
+            IEnumerable<Sequence> urlseqs = Matcher.Markup(urlcontent, urlmap);
 
-            Reload(wpruns, urlruns);
-
-            double elapsed = (DateTime.Now - starttime).TotalSeconds;
-            Status($"Total time: {elapsed:N1} seconds");
+            Dispatcher.Invoke(() => Reload(wpseqs, urlseqs));
         }
 
         private void WindowLoaded(object sender, RoutedEventArgs e)
@@ -219,22 +246,43 @@ namespace Copyvios
 
         private void Status(string message)
         {
-            Progress.Content = message;
+            Dispatcher.Invoke(() => { Progress.Content = message; });
         }
 
         private void Reload(IEnumerable<Run> wpruns, IEnumerable<Run> urlruns)
         {
-            WPPara.Inlines.Clear();
-            WPPara.Inlines.AddRange(wpruns);
-            WPViewer.ScrollToHome();
-            URLPara.Inlines.Clear();
-            URLPara.Inlines.AddRange(urlruns);
-            URLViewer.ScrollToHome();
+            Dispatcher.Invoke(() =>
+            {
+                WPPara.Inlines.Clear();
+                WPPara.Inlines.AddRange(wpruns);
+                WPViewer.ScrollToHome();
+                URLPara.Inlines.Clear();
+                URLPara.Inlines.AddRange(urlruns);
+                URLViewer.ScrollToHome();
+            });
         }
 
-        private void Reload(string wpstring, string ebstring)
+        private void Reload(string wpstring, string ebstring, Brush fg)
         {
-            Reload(new[] { new Run(wpstring) }, new[] { new Run(ebstring) });
+            Reload(
+               new[] { new Run(wpstring) { Foreground = fg } },
+               new[] { new Run(ebstring) { Foreground = fg } }
+               );
+        }
+
+        private void Reload(IEnumerable<Sequence> wpseqs, IEnumerable<Sequence> urlseqs)
+        {
+            Reload(SeqToRun(wpseqs), SeqToRun(urlseqs));
+        }
+
+        private IEnumerable<Run> SeqToRun(IEnumerable<Sequence> seqs)
+        {
+            foreach (Sequence seq in seqs) {
+                Run run = new Run(seq.text);
+                if (seq.background == RunBG.Highlight) run.Background = highlighter;
+                else if (seq.background == RunBG.Mediumlight) run.Background = mediumlighter;
+                yield return run;
+            }
         }
 
         private void Resized(object sender, SizeChangedEventArgs e)
@@ -250,7 +298,7 @@ namespace Copyvios
             SizeChanged += Resized;
 
             if (BothFieldsPresent()) {
-                DoComparison();
+                StartComparison();
             }
         }
 

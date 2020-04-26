@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Windows.Documents;
-using System.Windows.Media;
 
 namespace Copyvios
 {
@@ -48,14 +46,32 @@ namespace Copyvios
         }
     }
 
+    // Shadow a Windows Controls Run
+    public enum RunBG
+    {
+        None,
+        Highlight,
+        Mediumlight
+    }
+
+    public class Sequence
+    {
+        public string text;
+        public RunBG background;
+
+        public Sequence(string t)
+        {
+            text = t;
+            background = RunBG.None;
+        }
+    }
+
     public static class Matcher
     {
         const int minGram = 3;
         const int maxGram = 5;
 
         const Int64 guardhash = 0;
-        static readonly Brush highlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xAA, 0xAA));//
-        static readonly Brush mediumlighter = new SolidColorBrush(Color.FromRgb(0xFF, 0xD0, 0xB0));
 
         // Produce an array of words as their hashes
         static Word[] WordReduce(string text)
@@ -166,15 +182,12 @@ namespace Copyvios
             }
         }
 
-        // Provide a sequence of Runs
-        // You could feather these with judicious use of LinearGradientBrush, were you so inclined.
-        internal static IEnumerable<Run> Markup(string content, bool[] map)
+        // Provide a sequence of Run-equivalents
+        internal static IEnumerable<Sequence> Markup(string content, bool[] map)
         {
-            List<Run> result = new List<Run>();
-
             // I think we already eliminated this, but to be sure...
             if (content.Length == 0) {
-                return result;
+                yield break;
             }
 
             // What color to start?
@@ -185,29 +198,28 @@ namespace Copyvios
                 bool thisMarked = map[pos];
                 if (thisMarked != markThisRun) {
                     string runText = content.Substring(runpos, pos - runpos);
-                    Run newrun = new Run(runText);
+                    Sequence newrun = new Sequence(runText);
                     if (markThisRun ||
                         // We can sometimes get an unmarked punctuation sequence between two marked text sequences.
                         // It's a bit inefficient to have consecutive runs the same color, but it's rare.
                         !Regex.IsMatch(runText, @"\w")) {
-                        newrun.Background = highlighter;
+                        newrun.background = RunBG.Highlight;
                     }
                     else {
                         // Inspired by copyleaks.com: lighter color if it's just one unpunctuated word
                         if (Regex.IsMatch(runText, @"^\s*\w+\s*$")) {
-                            newrun.Background = mediumlighter;
+                            newrun.background = RunBG.Mediumlight;
                         }
                     }
-                    result.Add(newrun);
+                    yield return newrun;
                     runpos = pos;
                     markThisRun = thisMarked;
                 }
             }
 
-            Run finalrun = new Run(content.Substring(runpos, pos - runpos));
-            if (markThisRun) finalrun.Background = highlighter;
-            result.Add(finalrun);
-            return result;
+            Sequence finalrun = new Sequence(content.Substring(runpos, pos - runpos));
+            if (markThisRun) finalrun.background = RunBG.Highlight;
+            yield return finalrun;
         }
     }
 }
