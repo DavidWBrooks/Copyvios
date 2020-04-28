@@ -111,13 +111,14 @@ namespace Copyvios
                 // by combining two approaches, which also have few false positives:
                 // Combine 4 consecutive words, if at least one is significant
                 // Combine 3 significant words, skipping as many common words as necessary
+                // These algorithms can occasionally end up as empty ngrams (newgram=0) but that's very rare.
                 bool sig = false;
                 for (int j = 0; j < 4; j++) {
                     thisword = wordlist[i + j];
                     newgram = (newgram << 8) ^ (UInt32)thisword.Hash;
                     if (!thisword.IsCommon) sig = true;
                 }
-                if (sig && newgram != 0) {  // Although newgram can theoretically be 0, testing shows it very rare.
+                if (sig && newgram != 0) {
                     result.Add(new Chunk(start, thisword.StartPos - start + thisword.Length, newgram));
                 }
 
@@ -131,7 +132,7 @@ namespace Copyvios
                             break;
                     }
                 }
-                if (newgram != 0) {     // Although this can theoretically be 0, testing shows it very rare.
+                if (newgram != 0) {
                     result.Add(new Chunk(start, thisword.StartPos - start + thisword.Length, newgram));
                 }
             }
@@ -141,12 +142,12 @@ namespace Copyvios
         }
 
         // Match and mark both sides. Using a more efficient lookup with a dictionary of lists could make this
-        // O(n) instead of O(n^2), but this simpler search is rarely expensive compared with web access. Also, it
+        // O(n) instead of O(n^2), but this simpler search is rarely expensive compared with web access, and it
         // seemed that the structures needed to support O(n) were expensive themselves.
-        // Using a 2x parallelization helps (on a 2-core box) but only by about 20% even on a large page. You
-        // probably have at least two cores, and we trust the thread pool will use them.
-        // Testing shows that two explicit tasks is faster than a single side-task or specific thread, go figure.
-        // There may be occasionaly contention in setting isMatch, but it can only ever be setting true.
+        // Using a 2x parallelization helps (on a 2-core box of course) but only by about 20% even on a large page.
+        // We trust the thread pool will use the cores effectively.
+        // Testing shows that two explicit tasks is faster than a single side-task or specific Thread.
+        // There may be occasionally contention when setting isMatch, but it can only ever be setting true.
         public static void Marker(IList<Chunk> wpchunks, IList<Chunk> ebchunks)
         {
             int half = wpchunks.Count / 2;

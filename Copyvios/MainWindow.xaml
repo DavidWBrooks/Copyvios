@@ -31,6 +31,8 @@
                 <Setter Property="ClipToBounds" Value="True"/>
                 <Setter Property="HorizontalAlignment" Value="Left"/>
                 <Setter Property="VerticalScrollBarVisibility" Value="Visible"/>
+                <!-- To allow page and cursor keys to work: -->
+                <Setter Property="IsReadOnlyCaretVisible" Value="True"/>
             </Style>
         </StackPanel.Resources>
         <Grid Margin="0,0,0,4">
@@ -75,14 +77,14 @@
             <RichTextBox x:Name="WPViewer" Height="600" Grid.Row="1">
                 <FlowDocument>
                     <Paragraph x:Name="WPPara">
-                        <Run Text="The WP text will appear here"/>
+                        <Run Text="The WP text will appear here."/>
                     </Paragraph>
                 </FlowDocument>
             </RichTextBox>
             <RichTextBox x:Name="URLViewer" Grid.Column="1" Height="600" Grid.Row="1">
                 <FlowDocument>
                     <Paragraph x:Name="URLPara">
-                        <Run Text="The external text will appear here"/>
+                        <Run Text="The external text will appear here."/>
                     </Paragraph>
                 </FlowDocument>
             </RichTextBox>

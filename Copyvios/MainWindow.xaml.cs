@@ -43,6 +43,7 @@ namespace Copyvios
         private async void StartComparison()
         {
             CompareButton.IsEnabled = false;
+            // Stephen Toub's blog explained why there is no need for ConfigureAwait(false) in this situation.
             await DoComparison();
             CompareButton.IsEnabled = true;
         }
