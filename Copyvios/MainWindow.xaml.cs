@@ -77,10 +77,12 @@ namespace Copyvios
                         urlhttp = await urldownload;
                     }
                     catch (AggregateException aex) {
+                        Status(String.Empty);
                         MessageBox.Show(what + aex.InnerException.Message);
                         return;
                     }
                     catch (Exception ex) {
+                        Status(String.Empty);
                         MessageBox.Show(what + ex.Message);
                         return;
                     }
