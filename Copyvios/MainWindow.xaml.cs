@@ -18,6 +18,7 @@ namespace Copyvios
         private readonly Brush mediumlighter;
         private readonly Brush graytext;
 
+        private readonly string titleBase;
         private double StaticHeight;
 
         public MainWindow()
@@ -29,6 +30,7 @@ namespace Copyvios
             highlighter = (Brush)Resources["Highlight"];
             mediumlighter = (Brush)Resources["Mediumlight"];
             graytext = (Brush)Resources["GrayText"];
+            titleBase = Title;
         }
 
         private void CompareClick(object sender, RoutedEventArgs e)
@@ -53,9 +55,9 @@ namespace Copyvios
             DateTime starttime = DateTime.Now;
             string article = articleTitle.Text;
             string url = URL.Text;
+            Title = titleBase;  // In case of error
 
-            bool shortcut = !Regex.IsMatch(url, "^https?://.", RegexOptions.IgnoreCase);
-            if (shortcut) {
+            if (!Regex.IsMatch(url, "^https?://.", RegexOptions.IgnoreCase)) {
                 MessageBox.Show("URL must start with http[s]://");
                 return;
             }
@@ -73,7 +75,7 @@ namespace Copyvios
                     string what = "Reading the Wikipedia article: ";
                     try {
                         wphttp = await client.GetStringAsync(wpAction);
-                        what = shortcut ? "Reading the EB1911 article: " : "Reading the URL: ";
+                        what = "Reading the URL: ";
                         urlhttp = await urldownload;
                     }
                     catch (AggregateException aex) {
@@ -262,14 +264,16 @@ namespace Copyvios
                 URLPara.Inlines.Clear();
                 URLPara.Inlines.AddRange(urlruns);
                 URLViewer.ScrollToHome();
+                Title = titleBase + " - " + articleTitle.Text;
+
             });
         }
 
-        private void Reload(string wpstring, string ebstring, Brush fg)
+        private void Reload(string wpstring, string urlstring, Brush fg)
         {
             Reload(
                new[] { new Run(wpstring) { Foreground = fg } },
-               new[] { new Run(ebstring) { Foreground = fg } }
+               new[] { new Run(urlstring) { Foreground = fg } }
                );
         }
 
