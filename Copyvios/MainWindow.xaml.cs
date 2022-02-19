@@ -206,7 +206,7 @@ namespace Copyvios
             string result;
 
             // Extract body if there is one
-            Match m = Regex.Match(urlhttp, "<body[^>]*>(.*)</body>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+            Match m = Regex.Match(urlhttp, "<body.*?>(.*?)</body>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
             result = m.Success ? m.Groups[1].Value : urlhttp;
 
             // Strip to the first para marker
@@ -224,7 +224,7 @@ namespace Copyvios
             // Replace paragraph markers with newline and remove most remaining HTML markup
 
             result = result.Replace("<p>", "\n").Replace("<P>", "\n");
-            result = Regex.Replace(result, "<[^>]*>", "");
+            result = Regex.Replace(result, "<.*?>", "");
 
             return FinalTrim(result);
         }

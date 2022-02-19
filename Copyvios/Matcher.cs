@@ -73,10 +73,12 @@ namespace Copyvios
 
         const Int64 guardhash = 0;
 
+        static readonly Regex splitRE = new Regex(@"\w+");
+
         // Produce an array of words as their hashes
         static Word[] WordReduce(string text)
         {
-            MatchCollection matches = Regex.Matches(text.ToLower(), @"\w+");
+            MatchCollection matches = splitRE.Matches(text.ToLower());
             // At this point we know the required array capacity
             Word[] result = new Word[matches.Count + maxGram - minGram];
             int arrind = 0;
@@ -184,6 +186,9 @@ namespace Copyvios
         }
 
         // Provide a sequence of Run-equivalents
+        private readonly static Regex wordRE = new Regex(@"\w");
+        private readonly static Regex spacewordRE = new Regex(@"^\s*\w+\s*$");
+
         internal static IEnumerable<Sequence> Markup(string content, bool[] map)
         {
             // I think we already eliminated this, but to be sure...
@@ -203,12 +208,12 @@ namespace Copyvios
                     if (markThisRun ||
                         // We can sometimes get an unmarked punctuation sequence between two marked text sequences.
                         // It's a bit inefficient to have consecutive runs the same color, but it's rare.
-                        !Regex.IsMatch(runText, @"\w")) {
+                        !wordRE.IsMatch(runText)) {
                         newrun.background = RunBG.Highlight;
                     }
                     else {
                         // Inspired by copyleaks.com: lighter color if it's just one unpunctuated word
-                        if (Regex.IsMatch(runText, @"^\s*\w+\s*$")) {
+                        if (spacewordRE.IsMatch(runText)) {
                             newrun.background = RunBG.Mediumlight;
                         }
                     }
