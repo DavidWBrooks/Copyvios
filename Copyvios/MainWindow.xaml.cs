@@ -144,7 +144,7 @@ namespace Copyvios
             IEnumerable<Sequence> wpseqs = Matcher.Markup(wpcontent, wpmap);
             IEnumerable<Sequence> urlseqs = Matcher.Markup(urlcontent, urlmap);
 
-            Dispatcher.Invoke(() => Reload(wpseqs, urlseqs));
+            Reload(wpseqs, urlseqs);
         }
 
         private void WindowLoaded(object sender, RoutedEventArgs e)
@@ -265,7 +265,6 @@ namespace Copyvios
                 URLPara.Inlines.AddRange(urlruns);
                 URLViewer.ScrollToHome();
                 Title = titleBase + " - " + articleTitle.Text;
-
             });
         }
 
