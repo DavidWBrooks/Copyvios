@@ -146,17 +146,22 @@ namespace Copyvios
         // Match and mark both sides. Using a more efficient lookup with a dictionary of lists could make this
         // O(n) instead of O(n^2), but this simpler search is rarely expensive compared with web access, and it
         // seemed that the structures needed to support O(n) were expensive themselves.
-        // Using a 2x parallelization helps (on a 2-core box of course) but only by about 20% even on a large page.
         // We trust the thread pool will use the cores effectively.
-        // Testing shows that two explicit tasks is faster than a single side-task or specific Thread.
+        // Experiments show that using half the cores is pretty optimal in runtime
         // There may be occasionally contention when setting isMatch, but it can only ever be setting true.
         public static void Marker(IList<Chunk> wpchunks, IList<Chunk> ebchunks)
         {
-            int half = wpchunks.Count / 2;
+            int slices = Environment.ProcessorCount / 2;
+            if (slices == 0)    // One processor?
+                slices = 1;
+            int chunksize = wpchunks.Count / slices;
 
-            Task[] subtasks = new Task[2];
-            subtasks[0] = Task.Run(() => MarkSubset(wpchunks, ebchunks, 0, half));
-            subtasks[1] = Task.Run(() => MarkSubset(wpchunks, ebchunks, half, wpchunks.Count));
+            Task[] subtasks = new Task[slices];
+            for (int i = 0; i < slices; i++) {
+                int start = chunksize * i;
+                subtasks[i] = Task.Run(() => MarkSubset(wpchunks, ebchunks, start,
+                i == slices - 1 ? wpchunks.Count : start + chunksize));
+            }
 
             Task.WaitAll(subtasks);
         }
