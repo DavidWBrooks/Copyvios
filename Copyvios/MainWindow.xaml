@@ -9,8 +9,12 @@
         <SolidColorBrush x:Key="Mediumlight" Color="#FFD0B0" />
         <SolidColorBrush x:Key="GrayText" Color="{DynamicResource {x:Static SystemColors.GrayTextColorKey}}" />
     </Window.Resources>
-    <StackPanel HorizontalAlignment="Left" Margin="0" VerticalAlignment="Top" >
-        <StackPanel.Resources>
+    <Grid HorizontalAlignment="Left">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.Resources>
             <Style TargetType="Label">
                 <Setter Property="Margin" Value="2"/>
                 <Setter Property="VerticalAlignment" Value="Center"/>
@@ -34,7 +38,7 @@
                 <!-- To allow page and cursor keys to work: -->
                 <Setter Property="IsReadOnlyCaretVisible" Value="True"/>
             </Style>
-        </StackPanel.Resources>
+        </Grid.Resources>
         <Grid Margin="0,0,0,4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -47,20 +51,22 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Label Content="Article title:"/>
-            <TextBox x:Name="articleTitle" HorizontalAlignment="Left" TextWrapping="Wrap" Width="240" Grid.Column="1" TabIndex="1" Margin="4,2"/>
-            <Button x:Name="CompareButton" Content="Compare" Grid.Column="2" HorizontalAlignment="Center" IsDefault="True" Click="CompareClick" Margin="6,2" />
+            <TextBox x:Name="articleTitle" HorizontalAlignment="Left" TextWrapping="Wrap" Width="240"
+                     Grid.Column="1" TabIndex="1" Margin="4,2"/>
+            <Button x:Name="CompareButton" Content="Compare" Grid.Column="2" HorizontalAlignment="Center"
+                    TabIndex="3" IsDefault="True" Click="CompareClick" Margin="6,2" />
             <Label x:Name="Progress" Grid.Column="3" />
             <Label Content="External URL:" HorizontalAlignment="Left" Grid.Row="1"/>
             <TextBox x:Name="URL" Grid.Column="1" Grid.Row="1" TextWrapping="Wrap" Grid.ColumnSpan="3" TabIndex="2" Margin="4,2"/>
         </Grid>
-        <Grid Name="ViewGrid">
+        <Grid Name="ViewGrid" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid.Resources>
                 <Style TargetType="Label">
@@ -74,14 +80,14 @@
             </Grid.Resources>
             <Label x:Name="WPHeading" Content="Wikipedia article"/>
             <Label Content="External URL" Grid.Column="1"/>
-            <RichTextBox x:Name="WPViewer" Height="600" Grid.Row="1" IsManipulationEnabled="True">
+            <RichTextBox x:Name="WPViewer" Grid.Row="1">
                 <FlowDocument>
                     <Paragraph x:Name="WPPara">
                         <Run Text="The WP text will appear here."/>
                     </Paragraph>
                 </FlowDocument>
             </RichTextBox>
-            <RichTextBox x:Name="URLViewer" Grid.Column="1" Height="600" Grid.Row="1" IsManipulationEnabled="True">
+            <RichTextBox x:Name="URLViewer" Grid.Row="1" Grid.Column="1">
                 <FlowDocument>
                     <Paragraph x:Name="URLPara">
                         <Run Text="The external text will appear here."/>
@@ -89,5 +95,5 @@
                 </FlowDocument>
             </RichTextBox>
         </Grid>
-    </StackPanel>
+    </Grid>
 </Window>

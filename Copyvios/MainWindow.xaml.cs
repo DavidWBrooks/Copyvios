@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -19,7 +20,6 @@ namespace Copyvios
         private readonly Brush graytext;
 
         private readonly string titleBase;
-        private double StaticHeight;
 
         public MainWindow()
         {
@@ -156,8 +156,10 @@ namespace Copyvios
 
         private string StripWP(string wphttp)
         {
-            XmlDocument doc = new XmlDocument();
-            doc.LoadXml(wphttp);
+            XmlDocument doc = new XmlDocument() {  XmlResolver = null } ;
+            using (XmlReader reader = XmlReader.Create(new StringReader(wphttp))) {
+                doc.Load(reader);
+            }
             XmlNodeList slotels = doc.GetElementsByTagName("slot");
             if (slotels.Count == 0) {
                 throw new ApplicationException("Wikipedia query didn't return an article");
@@ -291,18 +293,8 @@ namespace Copyvios
             }
         }
 
-        private void Resized(object sender, SizeChangedEventArgs e)
-        {
-            double newHeight = this.ActualHeight - StaticHeight;
-            WPViewer.Height = newHeight;
-            URLViewer.Height = newHeight;
-        }
-
         private void Rendered(object sender, EventArgs e)
         {
-            StaticHeight = this.ActualHeight - WPViewer.ActualHeight;
-            SizeChanged += Resized;
-
             if (BothFieldsPresent()) {
                 StartComparison();
             }
