@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ namespace Copyvios
         private readonly Brush graytext;
 
         private readonly string titleBase;
+        private readonly string useragent;
 
         public MainWindow()
         {
@@ -31,6 +33,10 @@ namespace Copyvios
             mediumlighter = (Brush)Resources["Mediumlight"];
             graytext = (Brush)Resources["GrayText"];
             titleBase = Title;
+
+            AssemblyName assemblyName = typeof(MainWindow).Assembly.GetName();
+            useragent = assemblyName.Name + '/' + assemblyName.Version +
+                " (https://github.com/DavidWBrooks/Copyvios)";
         }
 
         private void CompareClick(object sender, RoutedEventArgs e)
@@ -70,6 +76,7 @@ namespace Copyvios
             Status("Loading articles...");
             // Testing shows one HttpClient can handle two simultaneous requests (documentation isn't clear on that)
             using (HttpClient client = new HttpClient()) {
+                client.DefaultRequestHeaders.Add("User-Agent", useragent);
                 // Wait for both HTTP calls, so it doesn't matter which is awaited.
                 using (Task<string> urldownload = client.GetStringAsync(url)) {
                     string what = "Reading the Wikipedia article: ";
